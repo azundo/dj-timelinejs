@@ -3,6 +3,8 @@ from django.db import models
 from django.utils import simplejson as json, html
 from django.conf import settings
 from django.shortcuts import get_object_or_404
+from django.core.urlresolvers import reverse
+
 from .utils import markdown_linkify
 
 # Create your models here.
@@ -45,9 +47,8 @@ class Timeline(models.Model):
                 (VIEW_PRIVATE_TIMELINES_PERM.split('.')[1], 'Can see published, private timelines.'),
         )
 
-    @models.permalink
     def get_absolute_url(self):
-        return ('timeline.views.timeline', [self.slug])
+        return reverse('timeline', kwargs={'slug': self.slug})
 
     def __unicode__(self):
         return self.title
