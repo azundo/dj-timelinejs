@@ -1,4 +1,5 @@
 from django import forms
+
 from .models import Timeline
 
 class TimelineForm(forms.ModelForm):
