@@ -2,7 +2,7 @@
 {% block title %}Import Timeline from Google Spreadsheet {% endblock %}
 
 {% block content %}
-<div class="left-edge">
+<div>
     <h1>Import Timeline from a Google Spreadsheet</h1>
 
     <form action="." method="POST">{% csrf_token %}
@@ -10,12 +10,6 @@
         <div id="status"></div>
         <button id="convert-spreadsheet" class="btn" type="submit" disabled="disabled">Convert</button>
     </form>
-</div>
-{% endblock %}
-
-{% block sidebar %}
-<div class="left-edge">
-    <h3>No Actions</h3>
 </div>
 {% endblock %}
 
