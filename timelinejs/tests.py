@@ -9,16 +9,10 @@ from django.test import TestCase
 from django.test.client import Client
 from django.http import Http404
 from django.core.urlresolvers import reverse
-from .models import Timeline
 from django.contrib.auth.models import User, Permission
 
+from .models import Timeline
 
-class SimpleTest(TestCase):
-    def test_basic_addition(self):
-        """
-        Tests that 1 + 1 always equals 2.
-        """
-        self.assertEqual(1 + 1, 2)
 
 class TestTimelinePermissions(TestCase):
 
@@ -29,8 +23,12 @@ class TestTimelinePermissions(TestCase):
         )
         self.c = Client()
         self.u = User.objects.create_user('test', password='test')
-        p = Permission.objects.get_by_natural_key('view_private_timelines', 'timelinejs', 'timeline')
-        self.u.user_permissions.add(p)
+        self.u.is_staff = True
+        self.u.save()
+        p1 = Permission.objects.get_by_natural_key('view_private_timelines', 'timelinejs', 'timeline')
+        p2 = Permission.objects.get_by_natural_key('add_timeline', 'timelinejs', 'timeline')
+        self.u.user_permissions.add(p1)
+        self.u.user_permissions.add(p2)
 
     def test_private_timelines_anonymous(self):
         """
@@ -53,6 +51,15 @@ class TestTimelinePermissions(TestCase):
         self.timeline.save()
         resp = self.c.get(reverse('timelines'))
         self.assertNotContains(resp, self.timeline.title)
+
+    def test_add_timelines_anonymous_ui(self):
+        resp = self.c.get(reverse('timelines'))
+        self.assertNotContains(resp, reverse('admin:timelinejs_timeline_add'))
+
+    def test_add_timelines_authenticated_ui(self):
+        self.c.login(username='test', password='test')
+        resp = self.c.get(reverse('timelines'))
+        self.assertContains(resp, reverse('admin:timelinejs_timeline_add'))
 
     def test_private_timelines_authenticated(self):
         self.timeline.private = True
