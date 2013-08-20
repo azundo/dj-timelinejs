@@ -1,51 +1,65 @@
 # Create your views here.
-from django.shortcuts import render, redirect
-from django.core.urlresolvers import reverse
+from django.views.generic import DetailView, ListView, FormView
+from django.utils.decorators import method_decorator
 from django.contrib.auth.decorators import permission_required
 from django.contrib import messages
 from django.template.defaultfilters import slugify
 from django.db import transaction
+
 from .models import Timeline, TimelineImporter
 from .forms import TimelineForm
 
-def timelines(request):
-    """List timelines"""
-    timelines = Timeline.objects.visible_to_user(request.user)
-    return render(request, 'timelinejs/timelines.html', {'timelines': timelines})
+class TimelineListView(ListView):
+    """List timelines."""
+    context_object_name='timelines'
+    template_name = 'timelinejs/timelines.html'
 
-def timeline(request, slug):
-    """Show a timeline"""
-    timeline = Timeline.objects.get_visible_to_user_or_404(user=request.user, slug=slug)
-    return render(request, 'timelinejs/timeline.html', {'timeline': timeline})
+    def get_queryset(self):
+        return Timeline.objects.visible_to_user(self.request.user)
 
-@permission_required('timelinejs.add_timeline')
-@transaction.commit_manually
-def import_timeline_from_spreadsheet(request):
-    """
-    Manually manage the transaction so we can roll back any TimelineItems
-    and the Timeline itself if any of the items fail.
-    """
-    if request.method == 'GET':
-        form = TimelineForm()
-    elif request.method == 'POST':
-        form = TimelineForm(request.POST)
-        if form.is_valid():
+    def get_context_data(self, **kwargs):
+        context = super(TimelineListView, self).get_context_data(**kwargs)
+        context['user_can_add_timelines'] = False
+        if self.request.user.is_staff and self.request.user.has_perm('timelinejs.add_timeline'):
+            context['user_can_add_timelines'] = True
+        return context
+
+class TimelineDetailView(DetailView):
+    """Show a timeline."""
+    template_name = 'timelinejs/timeline.html'
+
+    def get_object(self):
+        return Timeline.objects.get_visible_to_user_or_404(
+                user=self.request.user,
+                slug=self.kwargs['slug'])
+
+class ImportTimelineFromSpreadsheetView(FormView):
+    """Import a timeline from a Google spreadsheet."""
+    form_class = TimelineForm
+    template_name = 'timelinejs/import_timeline.html'
+
+    @method_decorator(permission_required('timelinejs.add_timeline'))
+    def dispatch(self, *args, **kwargs):
+        return super(ImportTimelineFromSpreadsheetView, self).dispatch(*args, **kwargs)
+
+    def form_valid(self, form):
+        with transaction.commit_manually():
             timeline = form.save(commit=False)
             timeline.slug = slugify(timeline.title)
             timeline.save()
+            self.timeline = timeline
             try:
                 importer = TimelineImporter(form.cleaned_data['item_data'], timeline)
-                errors = importer.import_items()
+                recoverable_errors = importer.import_items()
             except Exception, e:
-                messages.add_message(request, messages.ERROR, 'Importing your timeline data failed with error: %s' % e)
+                messages.add_message(self.request, messages.ERROR, 'Importing your timeline data failed with error: %s. You may be able to fix this by editing the spreadsheet you are trying to import.' % e)
                 transaction.rollback()
-                return redirect(reverse('timelines'))
-            for error in errors:
-                messages.add_message(request, messages.WARNING, error)
+                return self.form_invalid(form)
+            # simply warn user of recoverable errors in the spreadsheet that were ignored
+            for error in recoverable_errors:
+                messages.add_message(self.request, messages.WARNING, error)
             transaction.commit()
-            return redirect(timeline.get_absolute_url())
-    # render hits the database (I think due to django_compressor) so we need
-    # to close our transaction after the render call
-    response = render(request, 'timelinejs/import_timeline.html', {'form': form})
-    transaction.commit()
-    return response
+        return super(ImportTimelineFromSpreadsheetView, self).form_valid(form)
+
+    def get_success_url(self):
+        return self.timeline.get_absolute_url()

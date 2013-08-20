@@ -21,7 +21,7 @@
 {% block sidebar %}
 <div class="left-edge">
     <h2>Page Actions</h2>
-    {% if user.is_authenticated %}
+    {% if user_can_add_timelines %}
     <ul class="button-list">
         <li><a class="btn btn-primary" href="{% url "admin:timelinejs_timeline_add" %}">Create New Timeline</a></li>
     </ul>
