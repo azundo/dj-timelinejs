@@ -16,9 +16,12 @@ Support for [TimelineJS](http://timeline.verite.co/) served through Django.
 This package supplies Django models and Class-Based-Views which make it easy to
 save and serve up TimelineJS content from a Django site
 
-###Installation
+###Brief Installation Instructions
 
-Basic installation requires installing this package and then adding `timelinejs` to your list of `INSTALLED_APPS` and run a `manage.py syncdb`. You will also likely want to override urls and templates as noted below.
+1. pip install dj-timelinejs
+2. add `timelinejs` to your list of `INSTALLED_APPS` in `settings.py`
+3. `manage.py syncdb`
+4. Override urls and templates as noted below.
 
 ###Adding Timelines
 
