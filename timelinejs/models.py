@@ -2,6 +2,7 @@ import markdown, datetime
 from django.db import models
 from django.utils import simplejson as json, html
 from django.conf import settings
+from django.shortcuts import get_object_or_404
 from .utils import markdown_linkify
 
 # Create your models here.
@@ -14,14 +15,35 @@ ITEM_TYPE_CHOICES = (
         (ERA, 'Era',),
         (NORMAL, 'Normal',),
 )
+VIEW_PRIVATE_TIMELINES_PERM = 'timelinejs.view_private_timelines'
 
 data_source_help_text = "Leave blank unless you are using a Google Spreadsheet."
+class TimelineManager(models.Manager):
+    def visible_to_user(self, user=None):
+        filter_kwargs = {'published': True}
+        if user is None or not user.has_perm(VIEW_PRIVATE_TIMELINES_PERM):
+            filter_kwargs['private'] = False
+        return self.filter(**filter_kwargs)
+
+    def get_visible_to_user_or_404(self, user=None, **kwargs):
+        kwargs['published'] = True
+        if user is None or not user.has_perm(VIEW_PRIVATE_TIMELINES_PERM):
+            kwargs['private'] = False
+        return get_object_or_404(Timeline, **kwargs)
+
 class Timeline(models.Model):
     data_source = models.URLField(max_length=255, null=True, blank=True, help_text=data_source_help_text)
     title = models.CharField(max_length=255, unique=True)
     slug = models.SlugField(unique=True)
     private = models.BooleanField(default=False)
     published = models.BooleanField(default=True)
+
+    objects = TimelineManager()
+
+    class Meta:
+        permissions = (
+                (VIEW_PRIVATE_TIMELINES_PERM.split('.')[1], 'Can see published, private timelines.'),
+        )
 
     @models.permalink
     def get_absolute_url(self):
