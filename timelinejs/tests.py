@@ -4,6 +4,7 @@ when you run "manage.py test".
 
 Replace this with more appropriate tests for your application.
 """
+import os
 
 from django.test import TestCase
 from django.test.client import Client
@@ -11,7 +12,7 @@ from django.http import Http404
 from django.core.urlresolvers import reverse
 from django.contrib.auth.models import User, Permission
 
-from .models import Timeline
+from .models import Timeline, TimelineImporter
 
 
 class TestTimelinePermissions(TestCase):
@@ -134,3 +135,18 @@ class TestTimelinePermissions(TestCase):
         self.c.login(username='test', password='test')
         resp = self.c.get(reverse('timeline', args=[self.timeline.slug]))
         self.assertEquals(404, resp.status_code)
+
+class TestTimelineImport(TestCase):
+    def setUp(self):
+        self.timeline = Timeline.objects.create(
+                title='Test Timeline',
+                slug='test-timeline',
+        )
+
+    def test_timeline_import(self):
+        timeline_json = open(os.path.join(os.path.dirname(__file__), 'fixtures/pastor_john_timeline.json')).readline()
+        timeline_json.strip()
+        importer = TimelineImporter(timeline_json, self.timeline)
+        errors = importer.import_items()
+        self.assertEquals(30, self.timeline.timelineitem_set.count())
+        self.assertEquals(0, len(errors))
